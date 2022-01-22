@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "HavokScriptRunner": {
+      "commandName": "Project"
+    },
+    "test": {
+      "commandName": "Project",
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\test.lua"
+    }
+  }
+}

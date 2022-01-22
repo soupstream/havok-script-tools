@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32106.194
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptToolsCommon", "HavokScriptToolsCommon\HavokScriptToolsCommon.csproj", "{87835D90-078D-487F-AA53-32B6CB87643C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptRunner", "HavokScriptRunner\HavokScriptRunner.csproj", "{22382E16-25F4-4FE1-AA0F-7F616CB40E0D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptCompiler", "HavokScriptCompiler\HavokScriptCompiler.csproj", "{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HavokScriptDisassembler", "HavokScriptDisassembler\HavokScriptDisassembler.csproj", "{668D0DAD-347F-463D-8525-7B01B51AFE5E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{87835D90-078D-487F-AA53-32B6CB87643C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87835D90-078D-487F-AA53-32B6CB87643C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87835D90-078D-487F-AA53-32B6CB87643C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87835D90-078D-487F-AA53-32B6CB87643C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{22382E16-25F4-4FE1-AA0F-7F616CB40E0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{22382E16-25F4-4FE1-AA0F-7F616CB40E0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{22382E16-25F4-4FE1-AA0F-7F616CB40E0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{22382E16-25F4-4FE1-AA0F-7F616CB40E0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {17DEAB6D-1CB5-4523-AA59-D263045B4741}
+	EndGlobalSection
+EndGlobal

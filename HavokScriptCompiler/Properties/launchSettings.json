@@ -1,0 +1,15 @@
+{
+  "profiles": {
+    "HavokScriptCompiler": {
+      "commandName": "Project"
+    },
+    "compile": {
+      "commandName": "Project",
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\test.lua"
+    },
+    "disssemble": {
+      "commandName": "Project",
+      "commandLineArgs": "-l $(ProjectDir)\\testfiles\\compiled.luac"
+    }
+  }
+}
