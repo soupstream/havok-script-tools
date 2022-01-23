@@ -6,6 +6,7 @@
     <RootNamespace>HavokScriptToolsCommon</RootNamespace>
     <ApplicationIcon />
     <StartupObject />
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
