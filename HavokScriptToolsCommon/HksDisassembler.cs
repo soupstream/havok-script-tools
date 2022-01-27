@@ -7,97 +7,196 @@ namespace HavokScriptToolsCommon
     public class HksDisassembler
     {
         private readonly BinaryReader reader;
-        private readonly List<int> functionAddresses;
-        HksHeader globalHeader;
+        HksHeader? globalHeader;
 
         public HksDisassembler(byte[] bytecode)
         {
             reader = new BinaryReader(bytecode);
-            functionAddresses = new List<int>();
         }
 
         public string Disassemble()
         {
             HksStructure structure = ReadStructure();
-            StringBuilder sb = new StringBuilder();
-            DisassembleFunction(structure.functions, sb);
+            StringBuilder sb = new();
+            sb.AppendFormat(".endianness {0}\n", structure.Header.Endianness.ToString().ToLower());
+            sb.AppendFormat(".int_size {0}\n", structure.Header.IntSize);
+            sb.AppendFormat(".size_t_size {0}\n", structure.Header.Size_tSize);
+            sb.AppendFormat(".instruction_size {0}\n", structure.Header.InstructionSize);
+            sb.AppendFormat(".number_size {0}\n", structure.Header.NumberSize);
+            sb.AppendFormat(".number_type {0}\n", structure.Header.NumberType.ToString().ToLower());
+            sb.AppendFormat(".flags 0x{0:x}\n", structure.Header.Flags);
+            sb.AppendFormat(".unk 0x{0:x}\n\n", structure.Header.Unk);
+            DisassembleFunctions(structure.Functions, sb);
+            DisassembleStructs(structure.Structs, sb);
             return sb.ToString();
         }
 
-        private void DisassembleFunction(List<HksFunctionBlock> functions, StringBuilder sb)
+        private void DisassembleFunctions(List<HksFunctionBlock> functions, StringBuilder sb)
         {
-            for (var i = 0; i > 10u; i++)
+            foreach (HksFunctionBlock function in functions)
             {
-                var function = functions[i];
-                var address = functionAddresses[i];
-
-                if (function.debugInfo is HksFunctionDebugInfo debugInfo)
+                //function header
+                string functionName = "";
+                if (function.DebugInfo is HksFunctionDebugInfo debugInfo)
                 {
-                    sb.AppendFormat(".function {0}\n", debugInfo.name);
-                }
-                else
-                {
-                    sb.AppendFormat(".function 0x{0:x}\n", address);
+                    functionName = debugInfo.Name;
+                    if (debugInfo.Path.Length != 0)
+                    {
+                        sb.AppendFormat(".path {0}\n", debugInfo.Path);
+                    }
                 }
 
+                if (functionName == "")
+                {
+                    functionName = string.Format("FUNC_{0:X8}", function.Address);
+                }
+                sb.AppendFormat(".function {0}\n", functionName);
+                sb.AppendFormat(".level {0}\n", function.Level);
+                sb.AppendFormat(".param_count {0}\n", function.ParamCount);
+                sb.AppendFormat(".unk1 {0}\n", function.Unk1);
+                sb.AppendFormat(".slot_count {0}\n", function.SlotCount);
+                sb.AppendFormat(".unk2 {0}\n", function.Unk2);
+                sb.AppendFormat(".function_count {0}\n", function.FunctionCount);
+
+                // constants
+                List<string> constantStrs = new List<string>();
+                for (int i = 0; i < function.Constants.Count; i++)
+                {
+                    object? value = function.Constants[i].Value;
+                    if (value is null)
+                    {
+                        value = "nil";
+                    }
+                    else if (value is string str)
+                    {
+                        value = "\"" + str + "\"";
+                    }
+                    constantStrs.Add(value.ToString()!);
+                    sb.AppendFormat(".constant {0} ; {1}\n", value, i);
+                }
+
+                if (function.DebugInfo is HksFunctionDebugInfo debugInfo2)
+                {
+                    foreach (HksDebugLocal local in debugInfo2.Locals)
+                    {
+                        sb.AppendFormat(".local {0}, {1}, {2}\n", local.Name, local.Start, local.End);
+                    }
+
+                    foreach (string upvalue in debugInfo2.Upvalues)
+                    {
+                        sb.AppendFormat(".upvalue {0}\n", upvalue);
+                    }
+                }
+
+                // instructions
+                for (int i = 0; i < function.Instructions.Count; i++)
+                {
+                    if (function.DebugInfo is HksFunctionDebugInfo debugInfo1)
+                    {
+                        sb.AppendFormat("[{0}] ", debugInfo1.Lines[i]);
+                    }
+                    HksInstruction instruction = function.Instructions[i];
+                    sb.AppendFormat("{0} ", instruction.OpCode.ToString());
+                    for (int j = 0; j < instruction.Args.Count; j++)
+                    {
+                        HksOpArg arg = instruction.Args[j];
+                        if (arg.Mode == HksOpArgMode.CONST)
+                        {
+                            sb.AppendFormat("K({0})={1}", arg.Value, constantStrs[arg.Value]);
+                        }
+                        else if (arg.Mode == HksOpArgMode.REG)
+                        {
+                            sb.AppendFormat("R({0})", arg.Value);
+                        }
+                        else
+                        {
+                            sb.Append(arg.Value);
+                        }
+                        if (j < instruction.Args.Count - 1)
+                        {
+                            sb.Append(", ");
+                        }
+                    }
+                    sb.Append('\n');
+                }
+
+                sb.Append('\n');
+            }
+        }
+
+        private void DisassembleStructs(List<HksStructBlock> structs, StringBuilder sb)
+        {
+            foreach (HksStructBlock struct_ in structs)
+            {
+                sb.AppendFormat(".struct {0}\n", struct_.Header.Name);
+                sb.AppendFormat(".struct_id {0}\n", struct_.Header.StructId);
+                if (struct_.ExtendedStructs is List<string> extendedStructs)
+                {
+                    foreach (string extendedStruct in extendedStructs)
+                    {
+                        sb.AppendFormat(".extends {0}\n", extendedStruct);
+                    }
+                }
+                sb.AppendLine();
+                foreach (HksStructMember member in struct_.Members)
+                {
+                    sb.AppendFormat(".member {0}\n", member.Header.Name);
+                    sb.AppendFormat(".member_id {0}\n", member.Header.StructId);
+                    sb.AppendFormat(".member_type {0}\n", member.Header.Type);
+                    sb.AppendFormat(".member_index {0}\n", member.Index);
+                }
+                sb.AppendLine();
             }
         }
 
         public HksStructure ReadStructure()
         {
-            HksStructure structure;
-            structure.header = ReadHeader();
-            globalHeader = structure.header;
-            reader.SetLittleEndian(structure.header.endianness == HksEndianness.LITTLE);
-            structure.typeEnum = ReadTypeEnum();
-            structure.functions = ReadFunctions();
-            HksDisassemblyException.Assert(structure.functions.Count == functionAddresses.Count, "this shouldn't happen");
-            structure.unk = reader.ReadInt32();
-            structure.structs = ReadStructs();
-            return structure;
+            globalHeader = ReadHeader();
+            reader.SetLittleEndian(globalHeader.Endianness == HksEndianness.LITTLE);
+            var typeEnum = ReadTypeEnum();
+            var functions = ReadFunctions();
+            var unk = reader.ReadInt32();
+            var structs = ReadStructs();
+            return new HksStructure(globalHeader, typeEnum, functions, unk, structs);
         }
 
         private HksHeader ReadHeader()
         {
-            HksHeader header;
-            header.signature = reader.ReadBytes(4);
+            var signature = reader.ReadBytes(4);
             byte[] expectedSignature = { 0x1b, 0x4c, 0x75, 0x61 }; // "\x1bLua"
-            HksDisassemblyException.Assert(Util.ArraysEqual(header.signature, expectedSignature), "invalid signature");
-            header.version = reader.ReadUInt8();
-            HksDisassemblyException.Assert(header.version == 0x51, "invalid Lua version");
-            header.format = reader.ReadUInt8();
-            HksDisassemblyException.Assert(header.version == 14, "invalid Lua format version");
-            header.endianness = (HksEndianness)reader.ReadUInt8();
-            header.intSize = reader.ReadUInt8();
-            header.size_tSize = reader.ReadUInt8();
-            header.instructionSize = reader.ReadUInt8();
-            header.numberSize = reader.ReadUInt8();
-            header.numberType = (HksNumberType)reader.ReadUInt8();
-            header.flags = reader.ReadUInt8();
-            header.unk = reader.ReadUInt8();
-            return header;
+            HksDisassemblyException.Assert(Util.ArraysEqual(signature, expectedSignature), "invalid signature");
+            var version = reader.ReadUInt8();
+            HksDisassemblyException.Assert(version == 0x51, "invalid Lua version");
+            var format = reader.ReadUInt8();
+            HksDisassemblyException.Assert(format == 14, "invalid Lua format version");
+            var endianness = (HksEndianness)reader.ReadUInt8();
+            var intSize = reader.ReadUInt8();
+            var size_tSize = reader.ReadUInt8();
+            var instructionSize = reader.ReadUInt8();
+            var numberSize = reader.ReadUInt8();
+            var numberType = (HksNumberType)reader.ReadUInt8();
+            var flags = reader.ReadUInt8();
+            var unk = reader.ReadUInt8();
+            return new HksHeader(signature, version, format, endianness, intSize, size_tSize, instructionSize, numberSize, numberType, flags, unk);
         }
 
         private HksTypeEnum ReadTypeEnum()
         {
-            HksTypeEnum typeEnum;
-            typeEnum.count = reader.ReadUInt32();
-            typeEnum.entries = new List<HksTypeEnumEntry>();
-            for (var i = 0; i < typeEnum.count; i++)
+            var count = reader.ReadUInt32();
+            var entries = new List<HksTypeEnumEntry>();
+            for (var i = 0; i < count; i++)
             {
-                HksTypeEnumEntry entry;
-                entry.value = reader.ReadInt32();
+                var value = reader.ReadInt32();
                 int length = reader.ReadInt32();
-                entry.name = reader.ReadString(length - 1);
-                reader.Skip(1);
-                typeEnum.entries.Add(entry);
+                string name = "";
+                if (length != 0)
+                {
+                    name = reader.ReadString(length - 1);
+                    reader.Skip(1);
+                }
+                entries.Add(new HksTypeEnumEntry(value, name));
             }
-            return typeEnum;
-        }
-
-        struct HksFunctionBlockInfo
-        {
-            int address;
+            return new HksTypeEnum(count, entries);
         }
 
         private List<HksFunctionBlock> ReadFunctions()
@@ -106,69 +205,68 @@ namespace HavokScriptToolsCommon
             uint functionCount = 1;
             while (functionCount > 0)
             {
-                functionAddresses.Add(reader.GetPosition());
+                var address = reader.GetPosition();
 
-                HksFunctionBlock function;
-                function.unk0 = reader.ReadInt32();
-                function.paramCount = reader.ReadUInt32();
-                function.unk1 = reader.ReadInt32();
-                function.slotCount = reader.ReadUInt32();
-                function.unk2 = reader.ReadInt32();
-                function.instructionCount = reader.ReadUInt32();
-                function.instructions = new List<HksInstruction>();
-                for (var i = 0; i < function.instructionCount; i++)
+                var level = reader.ReadInt32();
+                var paramCount = reader.ReadUInt32();
+                var unk1 = reader.ReadInt8();
+                var slotCount = reader.ReadUInt32();
+                var unk2 = reader.ReadInt32();
+                var instructionCount = reader.ReadUInt32();
+                var instructions = new List<HksInstruction>();
+                reader.Pad(4);
+                for (var i = 0; i < instructionCount; i++)
                 {
-                    function.instructions.Add(ReadInstruction());
+                    instructions.Add(ReadInstruction());
                 }
 
-                function.constantCount = reader.ReadUInt32();
-                function.constants = new List<HksValue>();
-                for (var i = 0; i < function.constantCount; i++)
+                var constantCount = reader.ReadUInt32();
+                var constants = new List<HksValue>();
+                for (var i = 0; i < constantCount; i++)
                 {
-                    function.constants.Add(ReadValue());
+                    constants.Add(ReadValue());
                 }
 
-                function.hasDebugInfo = reader.ReadInt32();
-                if (function.hasDebugInfo == 0)
+                var hasDebugInfo = reader.ReadInt32();
+                HksFunctionDebugInfo? debugInfo = null;
+                if (hasDebugInfo != 0)
                 {
-                    function.debugInfo = null;
-                }
-                else
-                {
-                    HksFunctionDebugInfo debugInfo;
-                    debugInfo.lineCount = reader.ReadUInt32();
-                    debugInfo.localsCount = reader.ReadUInt32();
-                    debugInfo.upvalueCount = reader.ReadUInt32();
-                    debugInfo.lineBegin = reader.ReadUInt32();
-                    debugInfo.lineEnd = reader.ReadUInt32();
-                    debugInfo.path = ReadString();
-                    debugInfo.name = ReadString();
-                    debugInfo.lines = new List<int>();
-                    for (var i = 0; i < debugInfo.lineCount; i++)
+                    var lineCount = reader.ReadUInt32();
+                    var localsCount = reader.ReadUInt32();
+                    var upvalueCount = reader.ReadUInt32();
+                    var lineBegin = reader.ReadUInt32();
+                    var lineEnd = reader.ReadUInt32();
+                    var path = ReadString();
+                    var functionName = ReadString();
+                    var lines = new List<int>();
+                    for (var i = 0; i < lineCount; i++)
                     {
-                        debugInfo.lines.Add(reader.ReadInt32());
+                        lines.Add(reader.ReadInt32());
                     }
-                    debugInfo.locals = new List<HksDebugLocal>();
-                    for (var i = 0; i < debugInfo.localsCount; i++)
+                    var locals = new List<HksDebugLocal>();
+                    for (var i = 0; i < localsCount; i++)
                     {
-                        HksDebugLocal local;
-                        local.name = ReadString();
-                        local.start = reader.ReadInt32();
-                        local.end = reader.ReadInt32();
-                        debugInfo.locals.Add(local);
+                        var localName = ReadString();
+                        var start = reader.ReadInt32();
+                        var end = reader.ReadInt32();
+                        locals.Add(new HksDebugLocal(localName, start, end));
                     }
-                    debugInfo.upvalues = new List<string>();
-                    for (var i = 0; i < debugInfo.upvalueCount; i++)
+                    var upvalues = new List<string>();
+                    for (var i = 0; i < upvalueCount; i++)
                     {
-                        debugInfo.upvalues.Add(ReadString());
+                        upvalues.Add(ReadString());
                     }
-                    function.debugInfo = debugInfo;
+                    debugInfo = new HksFunctionDebugInfo(lineCount, localsCount, upvalueCount, lineBegin, lineEnd, path, functionName, lines, locals, upvalues);
                 }
 
-                function.functionCount = reader.ReadUInt32();
+                var childFunctionCount = reader.ReadUInt32();
 
+                var function = new HksFunctionBlock(level, paramCount, unk1, slotCount, unk2, instructionCount, instructions, constantCount, constants, hasDebugInfo, debugInfo, childFunctionCount)
+                {
+                    Address = address
+                };
                 functions.Add(function);
-                functionCount += function.functionCount;
+                functionCount += childFunctionCount;
                 functionCount--;
             }
 
@@ -178,7 +276,7 @@ namespace HavokScriptToolsCommon
         private string ReadString()
         {
             int size;
-            if (globalHeader.size_tSize == 4)
+            if (globalHeader!.Size_tSize == 4)
             {
                 size = reader.ReadInt32();
             }
@@ -186,50 +284,57 @@ namespace HavokScriptToolsCommon
             {
                 size = (int)reader.ReadInt64();
             }
-            string str = reader.ReadString(size - 1);
-            reader.Skip(1);
+            string str = "";
+            if (size != 0)
+            {
+                str = reader.ReadString(size - 1);
+                reader.Skip(1);
+            }
             return str;
         }
 
         private HksValue ReadValue()
         {
-            HksValue value;
-            value.type = (HksType)reader.ReadInt8();
-            switch (value.type)
+            var type = (HksType)reader.ReadInt8();
+            object? value;
+            switch (type)
             {
                 case HksType.TNIL:
-                    value.value = null;
+                    value = null;
                     break;
                 case HksType.TBOOLEAN:
-                    value.value = reader.ReadInt8();
+                    value = reader.ReadInt8();
                     break;
                 case HksType.TNUMBER:
-                    if (globalHeader.numberSize == 4)
+                    if (globalHeader!.NumberSize == 4)
                     {
-                        if (globalHeader.numberType == HksNumberType.FLOAT)
+                        if (globalHeader.NumberType == HksNumberType.FLOAT)
                         {
-                            value.value = reader.ReadFloat();
+                            value = reader.ReadFloat();
                         }
                         else
                         {
-                            value.value = reader.ReadInt32();
+                            value = reader.ReadInt32();
                         }
                     }
-                    else if (globalHeader.numberSize == 8)
+                    else if (globalHeader.NumberSize == 8)
                     {
-                        if (globalHeader.numberType == HksNumberType.FLOAT)
+                        if (globalHeader.NumberType == HksNumberType.FLOAT)
                         {
-                            value.value = reader.ReadDouble();
+                            value = reader.ReadDouble();
                         }
                         else
                         {
-                            value.value = reader.ReadInt64();
+                            value = reader.ReadInt64();
                         }
                     }
                     else
                     {
-                        throw new HksDisassemblyException("unknown number size: " + globalHeader.numberSize);
+                        throw new HksDisassemblyException("unknown number size: " + globalHeader.NumberSize);
                     }
+                    break;
+                case HksType.TSTRING:
+                    value = ReadString();
                     break;
                 case HksType.TLIGHTUSERDATA:
                 case HksType.TTABLE:
@@ -241,135 +346,129 @@ namespace HavokScriptToolsCommon
                 case HksType.TUI64:
                 case HksType.TSTRUCT:
                 default:
-                    throw new HksDisassemblyException("type not implemented: " + value.type.ToString());
+                    throw new HksDisassemblyException("type not implemented: " + type.ToString());
             }
-            return value;
+            return new HksValue(type, value);
         }
 
         private HksInstruction ReadInstruction()
         {
-            HksInstruction instruction;
-            int raw = reader.ReadInt32();
-            instruction.opCode = (HksOpCode)(raw >> 25);
-            instruction.args = new List<HksOpArg>();
+            uint raw = reader.ReadUInt32();
+            var opCode = (HksOpCode)(raw >> 25);
+            var args = new List<HksOpArg>();
 
-            var opModes = HksOpInfo.opModes[(int)instruction.opCode];
+            var opModes = HksOpInfo.opModes[(int)opCode];
 
             if (opModes.opArgModeA == HksOpArgModeA.REG)
             {
-                HksOpArg arg;
-                arg.mode = HksOpArgMode.REG;
-                arg.value = raw & 0xff;
-                instruction.args.Add(arg);
+                var mode = HksOpArgMode.REG;
+                int value = (int)raw & 0xff;
+                args.Add(new HksOpArg(mode, value));
             }
 
             if (opModes.opMode == HksOpMode.iABC)
             {
                 if (opModes.opArgModeB != HksOpArgModeBC.UNUSED)
                 {
-                    HksOpArg arg;
+                    HksOpArgMode mode;
+                    uint value;
                     switch (opModes.opArgModeB)
                     {
                         case HksOpArgModeBC.NUMBER:
-                            arg.mode = HksOpArgMode.NUMBER;
-                            arg.value = (raw >> 17) & 0xff;
+                            mode = HksOpArgMode.NUMBER;
+                            value = (raw >> 17) & 0xff;
                             break;
                         case HksOpArgModeBC.OFFSET:
-                            arg.mode = HksOpArgMode.NUMBER;
-                            arg.value = (raw >> 17) & 0x1ff;
+                            mode = HksOpArgMode.NUMBER;
+                            value = (raw >> 17) & 0x1ff;
                             break;
                         case HksOpArgModeBC.REG:
-                            arg.mode = HksOpArgMode.REG;
-                            arg.value = (raw >> 17) & 0xff;
+                            mode = HksOpArgMode.REG;
+                            value = (raw >> 17) & 0xff;
                             break;
                         case HksOpArgModeBC.REG_OR_CONST:
-                            arg.value = (raw >> 17) & 0x1ff;
-                            if (arg.value < 0x100)
+                            value = (raw >> 17) & 0x1ff;
+                            if (value < 0x100)
                             {
-                                arg.mode = HksOpArgMode.REG;
+                                mode = HksOpArgMode.REG;
                             }
                             else
                             {
-                                arg.mode = HksOpArgMode.CONST;
-                                arg.value &= 0xff;
+                                mode = HksOpArgMode.CONST;
+                                value &= 0xff;
                             }
                             break;
                         case HksOpArgModeBC.CONST:
-                            arg.mode = HksOpArgMode.CONST;
-                            arg.value = (raw >> 17) & 0xff;
+                            mode = HksOpArgMode.CONST;
+                            value = (raw >> 17) & 0xff;
                             break;
                         default:
                             throw new HksDisassemblyException("this shouldn't happen");
                     }
-                    instruction.args.Add(arg);
+                    args.Add(new HksOpArg(mode, (int)value));
                 }
 
                 if (opModes.opArgModeC != HksOpArgModeBC.UNUSED)
                 {
-                    HksOpArg arg;
+                    HksOpArgMode mode;
+                    uint value;
                     switch (opModes.opArgModeC)
                     {
                         case HksOpArgModeBC.NUMBER:
-                            arg.mode = HksOpArgMode.NUMBER;
-                            arg.value = (raw >> 8) & 0xff;
+                            mode = HksOpArgMode.NUMBER;
+                            value = (raw >> 8) & 0xff;
                             break;
                         case HksOpArgModeBC.OFFSET:
-                            arg.mode = HksOpArgMode.NUMBER;
-                            arg.value = (raw >> 8) & 0x1ff;
+                            mode = HksOpArgMode.NUMBER;
+                            value = (raw >> 8) & 0x1ff;
                             break;
                         case HksOpArgModeBC.REG:
-                            arg.mode = HksOpArgMode.REG;
-                            arg.value = (raw >> 8) & 0xff;
+                            mode = HksOpArgMode.REG;
+                            value = (raw >> 8) & 0xff;
                             break;
                         case HksOpArgModeBC.REG_OR_CONST:
-                            arg.value = (raw >> 8) & 0x1ff;
-                            if (arg.value < 0x100)
+                            value = (raw >> 8) & 0x1ff;
+                            if (value < 0x100)
                             {
-                                arg.mode = HksOpArgMode.REG;
+                                mode = HksOpArgMode.REG;
                             }
                             else
                             {
-                                arg.mode = HksOpArgMode.CONST;
-                                arg.value &= 0xff;
+                                mode = HksOpArgMode.CONST;
+                                value &= 0xff;
                             }
                             break;
                         case HksOpArgModeBC.CONST:
-                            arg.mode = HksOpArgMode.CONST;
-                            arg.value = (raw >> 8) & 0xff;
+                            mode = HksOpArgMode.CONST;
+                            value = (raw >> 8) & 0xff;
                             break;
                         default:
                             throw new HksDisassemblyException("this shouldn't happen");
                     }
-                    instruction.args.Add(arg);
+                    args.Add(new HksOpArg(mode, (int)value));
                 }
             }
             else
             {
                 if (opModes.opArgModeB != HksOpArgModeBC.UNUSED)
                 {
-                    HksOpArg arg;
-                    arg.value = (raw >> 8) & 0x1ffff;
+                    int value = (int)(raw >> 8) & 0x1ffff;
                     if (opModes.opMode == HksOpMode.iAsBx)
                     {
-                        arg.value -= 0xffff;
+                        value -= 0xffff;
                     }
 
-                    switch (opModes.opArgModeB)
+                    var mode = opModes.opArgModeB switch
                     {
-                        case HksOpArgModeBC.NUMBER:
-                        case HksOpArgModeBC.OFFSET:
-                            arg.mode = HksOpArgMode.NUMBER;
-                            break;
-                        case HksOpArgModeBC.CONST:
-                            arg.mode = HksOpArgMode.CONST;
-                            break;
-                        default:
-                            throw new HksDisassemblyException("unexpected op arg mode: " + opModes.opArgModeB);
-                    }
+                        HksOpArgModeBC.NUMBER or HksOpArgModeBC.OFFSET => HksOpArgMode.NUMBER,
+                        HksOpArgModeBC.CONST => HksOpArgMode.CONST,
+                        _ => throw new HksDisassemblyException("unexpected op arg mode: " + opModes.opArgModeB),
+                    };
+                    args.Add(new HksOpArg(mode, value));
                 }
             }
 
-            return instruction;
+            return new HksInstruction(opCode, args);
         }
 
         private List<HksStructBlock> ReadStructs()
@@ -378,52 +477,46 @@ namespace HavokScriptToolsCommon
             while (reader.ReadInt64() != 0)
             {
                 reader.Skip(-sizeof(long));
-                HksStructBlock struct_;
-                struct_.header = ReadStructHeader();
-                struct_.memberCount = reader.ReadInt32();
-                if (globalHeader.NoMemberExtensions)
+                var header = ReadStructHeader();
+                var memberCount = reader.ReadInt32();
+                int? extendCount = null;
+                List<string>? extendedStructs = null;
+                if (!globalHeader!.NoMemberExtensions)
                 {
-                    struct_.extendCount = null;
-                    struct_.extendedStructs = null;
-                }
-                else
-                {
-                    struct_.extendCount = reader.ReadInt32();
-                    struct_.extendedStructs = new List<string>();
-                    for (var i = 0; i < struct_.extendCount; i++)
+                    extendCount = reader.ReadInt32();
+                    extendedStructs = new List<string>();
+                    for (var i = 0; i < extendCount; i++)
                     {
-                        struct_.extendedStructs.Add(ReadString());
+                        extendedStructs.Add(ReadString());
                     }
                 }
-                struct_.members = new List<HksStructMember>();
-                for (var i = 0; i < struct_.memberCount; i++)
+                var members = new List<HksStructMember>();
+                for (var i = 0; i < memberCount; i++)
                 {
-                    struct_.members.Add(ReadStructMember());
+                    members.Add(ReadStructMember());
                 }
-                structs.Add(struct_);
+                structs.Add(new HksStructBlock(header, memberCount, extendCount, extendedStructs, members));
             }
             return structs;
         }
 
         private HksStructHeader ReadStructHeader()
         {
-            HksStructHeader header;
-            header.name = ReadString();
-            header.unk0 = reader.ReadInt32();
-            header.unk1 = reader.ReadInt16();
-            header.structId = reader.ReadInt16();
-            header.type = (HksType)reader.ReadInt32();
-            header.unk2 = reader.ReadInt32();
-            header.unk3 = reader.ReadInt32();
-            return header;
+            var name = ReadString();
+            var unk0 = reader.ReadInt32();
+            var unk1 = reader.ReadInt16();
+            var structId = reader.ReadInt16();
+            var type = (HksType)reader.ReadInt32();
+            var unk2 = reader.ReadInt32();
+            var unk3 = reader.ReadInt32();
+            return new HksStructHeader(name, unk0, unk1, structId, type, unk2, unk3);
         }
 
         private HksStructMember ReadStructMember()
         {
-            HksStructMember member;
-            member.header = ReadStructHeader();
-            member.index = reader.ReadInt32();
-            return member;
+            var header = ReadStructHeader();
+            var index = reader.ReadInt32();
+            return new HksStructMember(header, index);
         }
     }
 

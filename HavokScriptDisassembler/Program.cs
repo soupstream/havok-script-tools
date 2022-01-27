@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using HavokScriptToolsCommon;
 
 namespace HavokScriptDisassembler
 {
@@ -6,7 +8,10 @@ namespace HavokScriptDisassembler
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            byte[] data = File.ReadAllBytes(args[0]);
+            var disassembler = new HksDisassembler(data);
+            string result = disassembler.Disassemble();
+            Console.WriteLine(result);
         }
     }
 }

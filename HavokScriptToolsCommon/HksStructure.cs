@@ -4,142 +4,131 @@ using System.Collections.Specialized;
 
 namespace HavokScriptToolsCommon
 {
-    public struct HksStructure
+    public record HksStructure
+    (
+        HksHeader Header,
+        HksTypeEnum TypeEnum,
+        List<HksFunctionBlock> Functions,
+        int Unk,
+        List<HksStructBlock> Structs
+    );
+
+    public record HksHeader
+    (
+        byte[] Signature,
+        byte Version,
+        byte Format,
+        HksEndianness Endianness,
+        byte IntSize,
+        byte Size_tSize,
+        byte InstructionSize,
+        byte NumberSize,
+        HksNumberType NumberType,
+        byte Flags,
+        byte Unk
+    )
     {
-        public HksHeader header;
-        public HksTypeEnum typeEnum;
-        public List<HksFunctionBlock> functions;
-        public int unk;
-        public List<HksStructBlock> structs;
+        public bool UnkFlag0 => Util.GetBit(Flags, 0);
+        public bool UnkFlag1 => Util.GetBit(Flags, 1);
+        public bool UnkFlag2 => Util.GetBit(Flags, 2);
+        public bool NoMemberExtensions => Util.GetBit(Flags, 3);
     }
 
-    public struct HksHeader
-    {
-        public byte[] signature;
-        public byte version;
-        public byte format;
-        public HksEndianness endianness;
-        public byte intSize;
-        public byte size_tSize;
-        public byte instructionSize;
-        public byte numberSize;
-        public HksNumberType numberType;
-        public byte flags;
-        public byte unk;
+    public record HksTypeEnum
+    (
+        uint Count,
+        List<HksTypeEnumEntry> Entries
+    );
 
-        public bool UnkFlag0
-        {
-            get { return Util.GetBit(flags, 0); }
-            set { Util.SetBit(ref flags, 0, value); }
-        }
-        public bool UnkFlag1
-        {
-            get { return Util.GetBit(flags, 1); }
-            set { Util.SetBit(ref flags, 1, value); }
-        }
-        public bool UnkFlag2
-        {
-            get { return Util.GetBit(flags, 2); }
-            set { Util.SetBit(ref flags, 2, value); }
-        }
-        public bool NoMemberExtensions
-        {
-            get { return Util.GetBit(flags, 3); }
-            set { Util.SetBit(ref flags, 3, value); }
-        }
+    public record HksTypeEnumEntry
+    (
+        int Value,
+        string Name
+    );
+
+    public record HksFunctionBlock
+    (
+        int Level,
+        uint ParamCount,
+        int Unk1,
+        uint SlotCount,
+        int Unk2,
+        uint InstructionCount,
+        List<HksInstruction> Instructions,
+        uint ConstantCount,
+        List<HksValue> Constants,
+        int HasDebugInfo,
+        HksFunctionDebugInfo? DebugInfo,
+        uint FunctionCount
+    )
+    {
+        public int Address { get; set; }
     }
 
-    public struct HksTypeEnum
-    {
-        public uint count;
-        public List<HksTypeEnumEntry> entries;
-    }
-    public struct HksTypeEnumEntry
-    {
-        public int value;
-        public string name;
-    }
+    public record HksFunctionDebugInfo
+    (
+        uint LineCount,
+        uint LocalsCount,
+        uint UpvalueCount,
+        uint LineBegin,
+        uint LineEnd,
+        string Path,
+        string Name,
+        List<int> Lines,
+        List<HksDebugLocal> Locals,
+        List<string> Upvalues
+    );
 
-    public struct HksFunctionBlock
-    {
-        public int unk0;
-        public uint paramCount;
-        public int unk1;
-        public uint slotCount;
-        public int unk2;
-        public uint instructionCount;
-        public List<HksInstruction> instructions;
-        public uint constantCount;
-        public List<HksValue> constants;
-        public int hasDebugInfo;
-        public HksFunctionDebugInfo? debugInfo;
-        public uint functionCount;
-    }
+    public record HksDebugLocal
+    (
+        string Name,
+        int Start,
+        int End
+    );
 
-    public struct HksFunctionDebugInfo
-    {
-        public uint lineCount;
-        public uint localsCount;
-        public uint upvalueCount;
-        public uint lineBegin;
-        public uint lineEnd;
-        public string path;
-        public string name;
-        public List<int> lines;
-        public List<HksDebugLocal> locals;
-        public List<string> upvalues;
-    }
+    public record HksInstruction
+    (
+        HksOpCode OpCode,
+        List<HksOpArg> Args
+    );
 
-    public struct HksDebugLocal
-    {
-        public string name;
-        public int start;
-        public int end;
-    }
+    public record HksOpArg
+    (
+        HksOpArgMode Mode,
+        int Value
+    );
 
-    public struct HksInstruction
-    {
-        public HksOpCode opCode;
-        public List<HksOpArg> args;
-    }
+    public record HksStructBlock
+    (
+        HksStructHeader Header,
+        int MemberCount,
+        int? ExtendCount,
+        List<string>? ExtendedStructs,
+        List<HksStructMember> Members
+    );
 
-    public struct HksOpArg
-    {
-        public HksOpArgMode mode;
-        public int value;
-    }
+    public record HksStructMember
+    (
+        HksStructHeader Header,
+        int Index
+    );
 
-    public struct HksStructBlock
-    {
-        public HksStructHeader header;
-        public int memberCount;
-        public int? extendCount;
-        public List<string>? extendedStructs;
-        public List<HksStructMember> members;
-    }
+    public record HksStructHeader
+    (
+        string Name,
+        int Unk0,
+        short Unk1,
+        short StructId,
+        HksType Type,
+        int Unk2,
+        int Unk3
+    );
 
-    public struct HksStructMember
-    {
-        public HksStructHeader header;
-        public int index;
-    }
-
-    public struct HksStructHeader
-    {
-        public string name;
-        public int unk0;
-        public short unk1;
-        public short structId;
-        public HksType type;
-        public int unk2;
-        public int unk3;
-    }
-
-    public struct HksValue
-    {
-        public HksType type;
-        public object? value;
-    }
+    public record HksValue
+    (
+        HksType Type,
+        object? Value
+    );
 
     public enum HksType
     {

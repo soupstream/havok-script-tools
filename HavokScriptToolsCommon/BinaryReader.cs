@@ -38,7 +38,7 @@ namespace HavokScriptToolsCommon
 
         public short ReadInt16()
         {
-            Span<byte> span = new Span<byte>(data).Slice(cursor);
+            Span<byte> span = new Span<byte>(data)[cursor..];
             short ret = littleEndian ? BinaryPrimitives.ReadInt16LittleEndian(span) : BinaryPrimitives.ReadInt16BigEndian(span);
             cursor += sizeof(short);
             return ret;
@@ -51,7 +51,7 @@ namespace HavokScriptToolsCommon
 
         public int ReadInt32()
         {
-            Span<byte> span = new Span<byte>(data).Slice(cursor);
+            Span<byte> span = new Span<byte>(data)[cursor..];
             int ret = littleEndian ? BinaryPrimitives.ReadInt32LittleEndian(span) : BinaryPrimitives.ReadInt32BigEndian(span);
             cursor += sizeof(int);
             return ret;
@@ -64,7 +64,7 @@ namespace HavokScriptToolsCommon
 
         public long ReadInt64()
         {
-            Span<byte> span = new Span<byte>(data).Slice(cursor);
+            Span<byte> span = new Span<byte>(data)[cursor..];
             long ret = littleEndian ? BinaryPrimitives.ReadInt64LittleEndian(span) : BinaryPrimitives.ReadInt64BigEndian(span);
             cursor += sizeof(long);
             return ret;

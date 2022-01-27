@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HavokScriptDisassembler": {
+      "commandName": "Project",
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\compiled.luac"
+    }
+  }
+}
