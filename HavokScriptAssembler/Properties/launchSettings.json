@@ -2,7 +2,7 @@
   "profiles": {
     "HavokScriptAssembler": {
       "commandName": "Project",
-      "commandLineArgs": "$(ProjectDir)\\testfiles\\sgh_interlock_tutorial_facility.asm sgh_interlock_tutorial_facility.luac"
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\parcel_mp_item_manager.asm parcel_mp_item_manager.asm"
     }
   }
 }

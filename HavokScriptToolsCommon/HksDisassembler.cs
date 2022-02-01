@@ -71,7 +71,7 @@ namespace HavokScriptToolsCommon
                     {
                         HksType.TNIL => "nil",
                         HksType.TSTRING => "\"" + (string)value! + "\"",
-                        HksType.TBOOLEAN => (sbyte)value! == 0 ? " false" : " true",
+                        HksType.TBOOLEAN => (sbyte)value! == 0 ? "false" : "true",
                         HksType.TNUMBER => value!.ToString()!,
                         _ => type.ToString() + "(" + value + ")"
                     };

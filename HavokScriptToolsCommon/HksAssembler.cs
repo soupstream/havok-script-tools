@@ -87,8 +87,16 @@ namespace HavokScriptToolsCommon
                     bw.WriteInt32(function.DebugInfo!.Upvalues.Count);
                     bw.WriteUInt32(function.DebugInfo!.LineBegin);
                     bw.WriteUInt32(function.DebugInfo!.LineEnd);
-                    AssembleString(function.DebugInfo!.Path, bw);
-                    AssembleString(function.DebugInfo!.Name, bw);
+                    AssembleString(function.DebugInfo!.Path, bw, false);
+                    if (Regex.IsMatch(function.DebugInfo!.Name, "FUNC_[0-9A-F]{8}"))
+                    {
+                        // discard auto-generated function names since the address might change
+                        AssembleString("", bw, false);
+                    }
+                    else
+                    {
+                        AssembleString(function.DebugInfo!.Name, bw, false);
+                    }
                     foreach (int line in function.DebugInfo!.Lines)
                     {
                         bw.WriteInt32(line);
@@ -240,17 +248,22 @@ namespace HavokScriptToolsCommon
             }
         }
 
-        private void AssembleString(string value, MyBinaryWriter bw)
+        private void AssembleString(string value, MyBinaryWriter bw, bool addNullTerminatorIfEmpty=true)
         {
+            if (value.Length != 0 || addNullTerminatorIfEmpty)
+            {
+                value += '\0';
+            }
             if (globalHeader!.Size_tSize == 4)
             {
-                bw.WriteInt32(value.Length + 1);
+                bw.WriteInt32(value.Length);
             }
             else
             {
-                bw.WriteInt64(value.Length + 1);
+                bw.WriteInt64(value.Length);
             }
-            bw.WriteString(value + '\0');
+
+            bw.WriteString(value);
         }
 
         private void AssembleNumber(object value, MyBinaryWriter bw)
@@ -282,7 +295,7 @@ namespace HavokScriptToolsCommon
             // language=regex
             string instructionExp = "([RK]\\()|([,);[\\]])| "; // register/constant | separators | spaces
             // language=regex
-            string directiveExp = "(\"[^\"]*\")|([,;])| "; // string | separators | spaces
+            string directiveExp = "(\"[^\"]*\")|(\\([^)]*\\))|([,;])| "; // string | parentheses | separators | spaces
 
             var lex = new List<List<string>>();
             foreach (string fileLine in File.ReadLines(filename))
@@ -401,8 +414,13 @@ namespace HavokScriptToolsCommon
 
             var instructions = new List<HksInstruction>();
             var lineNumbers = new List<int>();
-            for (var line = lex[cursor]; !line[0].StartsWith("."); line = lex[++cursor])
+            for (; cursor < lex.Count; cursor++)
             {
+                var line = lex[cursor];
+                if (line[0].StartsWith("."))
+                {
+                    break;
+                }
                 instructions.Add(ParseInstruction(line, ref lineNumbers));
             }
 
