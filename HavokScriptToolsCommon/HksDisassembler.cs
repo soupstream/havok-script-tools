@@ -1,17 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace HavokScriptToolsCommon
 {
     public class HksDisassembler
     {
-        private readonly BinaryReader reader;
+        private readonly MyBinaryReader reader;
         HksHeader? globalHeader;
 
         public HksDisassembler(byte[] bytecode)
         {
-            reader = new BinaryReader(bytecode);
+            reader = new MyBinaryReader(bytecode);
+        }
+
+        public string Disassemble(string outfile)
+        {
+            string results = Disassemble();
+            File.WriteAllText(outfile, results);
+            return results;
         }
 
         public string Disassemble()
@@ -24,8 +32,7 @@ namespace HavokScriptToolsCommon
             sb.AppendFormat(".instruction_size {0}\n", structure.Header.InstructionSize);
             sb.AppendFormat(".number_size {0}\n", structure.Header.NumberSize);
             sb.AppendFormat(".number_type {0}\n", structure.Header.NumberType.ToString().ToLower());
-            sb.AppendFormat(".flags 0x{0:x}\n", structure.Header.Flags);
-            sb.AppendFormat(".unk 0x{0:x}\n\n", structure.Header.Unk);
+            sb.AppendFormat(".flags {0}\n\n", structure.Header.Flags);
             DisassembleFunctions(structure.Functions, sb);
             DisassembleStructs(structure.Structs, sb);
             return sb.ToString();
@@ -40,43 +47,47 @@ namespace HavokScriptToolsCommon
                 if (function.DebugInfo is HksFunctionDebugInfo debugInfo)
                 {
                     functionName = debugInfo.Name;
-                    if (debugInfo.Path.Length != 0)
-                    {
-                        sb.AppendFormat(".path {0}\n", debugInfo.Path);
-                    }
                 }
 
                 if (functionName == "")
                 {
                     functionName = string.Format("FUNC_{0:X8}", function.Address);
                 }
+
                 sb.AppendFormat(".function {0}\n", functionName);
-                sb.AppendFormat(".level {0}\n", function.Level);
+                sb.AppendFormat(".upvalue_count {0}\n", function.UpvalueCount);
                 sb.AppendFormat(".param_count {0}\n", function.ParamCount);
-                sb.AppendFormat(".unk1 {0}\n", function.Unk1);
+                sb.AppendFormat(".is_vararg {0}\n", function.IsVararg);
                 sb.AppendFormat(".slot_count {0}\n", function.SlotCount);
-                sb.AppendFormat(".unk2 {0}\n", function.Unk2);
                 sb.AppendFormat(".function_count {0}\n", function.FunctionCount);
 
                 // constants
                 List<string> constantStrs = new List<string>();
                 for (int i = 0; i < function.Constants.Count; i++)
                 {
+                    HksType type = function.Constants[i].Type;
                     object? value = function.Constants[i].Value;
-                    if (value is null)
+                    string valueStr = type switch
                     {
-                        value = "nil";
-                    }
-                    else if (value is string str)
-                    {
-                        value = "\"" + str + "\"";
-                    }
-                    constantStrs.Add(value.ToString()!);
-                    sb.AppendFormat(".constant {0} ; {1}\n", value, i);
+                        HksType.TNIL => "nil",
+                        HksType.TSTRING => "\"" + (string)value! + "\"",
+                        HksType.TBOOLEAN => (sbyte)value! == 0 ? " false" : " true",
+                        HksType.TNUMBER => value!.ToString()!,
+                        _ => type.ToString() + "(" + value + ")"
+                    };
+                    constantStrs.Add(valueStr);
+                    sb.AppendFormat(".constant {0} ; {1}\n", valueStr, i);
                 }
 
                 if (function.DebugInfo is HksFunctionDebugInfo debugInfo2)
                 {
+                    sb.Append(".debug_info\n");
+                    if (debugInfo2.Path.Length > 0)
+                    {
+                        sb.AppendFormat(".path {0}\n", debugInfo2.Path);
+                    }
+                    sb.AppendFormat(".line_begin {0}\n", debugInfo2.LineBegin);
+                    sb.AppendFormat(".line_end {0}\n", debugInfo2.LineEnd);
                     foreach (HksDebugLocal local in debugInfo2.Locals)
                     {
                         sb.AppendFormat(".local {0}, {1}, {2}\n", local.Name, local.Start, local.End);
@@ -102,7 +113,7 @@ namespace HavokScriptToolsCommon
                         HksOpArg arg = instruction.Args[j];
                         if (arg.Mode == HksOpArgMode.CONST)
                         {
-                            sb.AppendFormat("K({0})={1}", arg.Value, constantStrs[arg.Value]);
+                            sb.AppendFormat("K({0})", arg.Value);
                         }
                         else if (arg.Mode == HksOpArgMode.REG)
                         {
@@ -128,8 +139,7 @@ namespace HavokScriptToolsCommon
         {
             foreach (HksStructBlock struct_ in structs)
             {
-                sb.AppendFormat(".struct {0}\n", struct_.Header.Name);
-                sb.AppendFormat(".struct_id {0}\n", struct_.Header.StructId);
+                sb.AppendFormat(".struct {0}, {1}\n", struct_.Header.Name, struct_.Header.StructId);
                 if (struct_.ExtendedStructs is List<string> extendedStructs)
                 {
                     foreach (string extendedStruct in extendedStructs)
@@ -137,15 +147,18 @@ namespace HavokScriptToolsCommon
                         sb.AppendFormat(".extends {0}\n", extendedStruct);
                     }
                 }
-                sb.AppendLine();
                 foreach (HksStructMember member in struct_.Members)
                 {
-                    sb.AppendFormat(".member {0}\n", member.Header.Name);
-                    sb.AppendFormat(".member_id {0}\n", member.Header.StructId);
-                    sb.AppendFormat(".member_type {0}\n", member.Header.Type);
-                    sb.AppendFormat(".member_index {0}\n", member.Index);
+                    if (member.Header.Type == HksType.TSTRUCT)
+                    {
+                        sb.AppendFormat(".member {0}, {1}, {2}\n", member.Header.Name, member.Header.Type, member.Header.StructId);
+                    }
+                    else
+                    {
+                        sb.AppendFormat(".member {0}, {1}\n", member.Header.Name, member.Header.Type);
+                    }
                 }
-                sb.AppendLine();
+                sb.Append('\n');
             }
         }
 
@@ -156,6 +169,7 @@ namespace HavokScriptToolsCommon
             var typeEnum = ReadTypeEnum();
             var functions = ReadFunctions();
             var unk = reader.ReadInt32();
+            HksDisassemblyException.Assert(unk == 1, "unexpected value before structs");
             var structs = ReadStructs();
             return new HksStructure(globalHeader, typeEnum, functions, unk, structs);
         }
@@ -207,11 +221,11 @@ namespace HavokScriptToolsCommon
             {
                 var address = reader.GetPosition();
 
-                var level = reader.ReadInt32();
+                var upvalueCount = reader.ReadUInt32();
                 var paramCount = reader.ReadUInt32();
-                var unk1 = reader.ReadInt8();
+                byte isVarArg = reader.ReadUInt8();
                 var slotCount = reader.ReadUInt32();
-                var unk2 = reader.ReadInt32();
+                var unk = reader.ReadInt32();
                 var instructionCount = reader.ReadUInt32();
                 var instructions = new List<HksInstruction>();
                 reader.Pad(4);
@@ -233,7 +247,7 @@ namespace HavokScriptToolsCommon
                 {
                     var lineCount = reader.ReadUInt32();
                     var localsCount = reader.ReadUInt32();
-                    var upvalueCount = reader.ReadUInt32();
+                    var upvalueCount2 = reader.ReadUInt32();
                     var lineBegin = reader.ReadUInt32();
                     var lineEnd = reader.ReadUInt32();
                     var path = ReadString();
@@ -252,16 +266,16 @@ namespace HavokScriptToolsCommon
                         locals.Add(new HksDebugLocal(localName, start, end));
                     }
                     var upvalues = new List<string>();
-                    for (var i = 0; i < upvalueCount; i++)
+                    for (var i = 0; i < upvalueCount2; i++)
                     {
                         upvalues.Add(ReadString());
                     }
-                    debugInfo = new HksFunctionDebugInfo(lineCount, localsCount, upvalueCount, lineBegin, lineEnd, path, functionName, lines, locals, upvalues);
+                    debugInfo = new HksFunctionDebugInfo(lineCount, localsCount, upvalueCount2, lineBegin, lineEnd, path, functionName, lines, locals, upvalues);
                 }
 
                 var childFunctionCount = reader.ReadUInt32();
 
-                var function = new HksFunctionBlock(level, paramCount, unk1, slotCount, unk2, instructionCount, instructions, constantCount, constants, hasDebugInfo, debugInfo, childFunctionCount)
+                var function = new HksFunctionBlock(upvalueCount, paramCount, isVarArg, slotCount, unk, instructionCount, instructions, constantCount, constants, hasDebugInfo, debugInfo, childFunctionCount)
                 {
                     Address = address
                 };
@@ -337,6 +351,8 @@ namespace HavokScriptToolsCommon
                     value = ReadString();
                     break;
                 case HksType.TLIGHTUSERDATA:
+                    value = reader.ReadInt64();
+                    break;
                 case HksType.TTABLE:
                 case HksType.TFUNCTION:
                 case HksType.TUSERDATA:
@@ -359,9 +375,14 @@ namespace HavokScriptToolsCommon
 
             var opModes = HksOpInfo.opModes[(int)opCode];
 
-            if (opModes.opArgModeA == HksOpArgModeA.REG)
+            // argument A
             {
-                var mode = HksOpArgMode.REG;
+                var mode = opModes.opArgModeA switch
+                {
+                    HksOpArgModeA.UNUSED => HksOpArgMode.NUMBER,
+                    HksOpArgModeA.REG => HksOpArgMode.REG,
+                    _ => throw new HksDisassemblyException("this should never happen")
+                };
                 int value = (int)raw & 0xff;
                 args.Add(new HksOpArg(mode, value));
             }
@@ -481,7 +502,7 @@ namespace HavokScriptToolsCommon
                 var memberCount = reader.ReadInt32();
                 int? extendCount = null;
                 List<string>? extendedStructs = null;
-                if (!globalHeader!.NoMemberExtensions)
+                if (globalHeader!.Flags == 3)
                 {
                     extendCount = reader.ReadInt32();
                     extendedStructs = new List<string>();
@@ -504,12 +525,11 @@ namespace HavokScriptToolsCommon
         {
             var name = ReadString();
             var unk0 = reader.ReadInt32();
-            var unk1 = reader.ReadInt16();
-            var structId = reader.ReadInt16();
+            var structId = reader.ReadUInt32();
             var type = (HksType)reader.ReadInt32();
+            var unk1 = reader.ReadInt32();
             var unk2 = reader.ReadInt32();
-            var unk3 = reader.ReadInt32();
-            return new HksStructHeader(name, unk0, unk1, structId, type, unk2, unk3);
+            return new HksStructHeader(name, unk0, structId, type, unk1, unk2);
         }
 
         private HksStructMember ReadStructMember()

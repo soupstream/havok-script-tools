@@ -3,6 +3,14 @@
     "HavokScriptDisassembler": {
       "commandName": "Project",
       "commandLineArgs": "$(ProjectDir)\\testfiles\\compiled.luac"
+    },
+    "hstruct": {
+      "commandName": "Project",
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\global_hstructs.luac global_hstructs.asm"
+    },
+    "big_script": {
+      "commandName": "Project",
+      "commandLineArgs": "$(ProjectDir)\\testfiles\\sgh_interlock_tutorial_facility.luac sgh_interlock_tutorial_facility.asm"
     }
   }
 }

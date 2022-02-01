@@ -4,13 +4,13 @@ using System.Buffers.Binary;
 
 namespace HavokScriptToolsCommon
 {
-    class BinaryReader
+    class MyBinaryReader
     {
         private readonly byte[] data;
         private int cursor;
         private bool littleEndian;
         private readonly Stack<int> cursorStack;
-        public BinaryReader(byte[] data, bool littleEndian=true)
+        public MyBinaryReader(byte[] data, bool littleEndian=true)
         {
             this.data = data;
             this.littleEndian = littleEndian;
@@ -77,30 +77,16 @@ namespace HavokScriptToolsCommon
 
         public float ReadFloat()
         {
-            float ret;
-            if (littleEndian == BitConverter.IsLittleEndian)
-            {
-                ret = BitConverter.ToSingle(data, cursor);
-            }
-            else
-            {
-                ret = BitConverter.ToSingle(GetReversedBytes(sizeof(float)));
-            }
+            Span<byte> span = new Span<byte>(data)[cursor..];
+            float ret = littleEndian ? BinaryPrimitives.ReadSingleLittleEndian(span) : BinaryPrimitives.ReadSingleBigEndian(span);
             cursor += sizeof(float);
             return ret;
         }
 
         public double ReadDouble()
         {
-            double ret;
-            if (littleEndian == BitConverter.IsLittleEndian)
-            {
-                ret = BitConverter.ToDouble(data, cursor);
-            }
-            else
-            {
-                ret = BitConverter.ToDouble(GetReversedBytes(sizeof(double)));
-            }
+            Span<byte> span = new Span<byte>(data)[cursor..];
+            double ret = littleEndian ? BinaryPrimitives.ReadDoubleLittleEndian(span) : BinaryPrimitives.ReadDoubleBigEndian(span);
             cursor += sizeof(double);
             return ret;
         }
@@ -145,13 +131,6 @@ namespace HavokScriptToolsCommon
             {
                 Skip(padding - (cursor % padding));
             }
-        }
-
-        private byte[] GetReversedBytes(int count)
-        {
-            byte[] slice = data[cursor..(cursor + count)];
-            Array.Reverse(slice);
-            return slice;
         }
 
         public int GetPosition()

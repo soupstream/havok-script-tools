@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using HavokScriptToolsCommon;
 
@@ -12,13 +13,26 @@ namespace HavokScriptRunner
             filename = null;
             interactive = false;
 
-            if (args.Length == 0)
+            var positionalArgs = new List<string>();
+            foreach (string arg in args)
+            {
+                if (arg == "-i")
+                {
+                    interactive = true;
+                }
+                else
+                {
+                    positionalArgs.Add(arg);
+                }
+            }
+
+            if (positionalArgs.Count == 0)
             {
                 interactive = true;
             }
-            else if (args.Length == 1)
+            else if (positionalArgs.Count == 1)
             {
-                filename = args[0];
+                filename = positionalArgs[0];
             }
             else
             {

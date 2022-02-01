@@ -26,13 +26,7 @@ namespace HavokScriptToolsCommon
         HksNumberType NumberType,
         byte Flags,
         byte Unk
-    )
-    {
-        public bool UnkFlag0 => Util.GetBit(Flags, 0);
-        public bool UnkFlag1 => Util.GetBit(Flags, 1);
-        public bool UnkFlag2 => Util.GetBit(Flags, 2);
-        public bool NoMemberExtensions => Util.GetBit(Flags, 3);
-    }
+    );
 
     public record HksTypeEnum
     (
@@ -48,11 +42,11 @@ namespace HavokScriptToolsCommon
 
     public record HksFunctionBlock
     (
-        int Level,
+        uint UpvalueCount,
         uint ParamCount,
-        int Unk1,
+        byte IsVararg,
         uint SlotCount,
-        int Unk2,
+        int Unk,
         uint InstructionCount,
         List<HksInstruction> Instructions,
         uint ConstantCount,
@@ -63,6 +57,16 @@ namespace HavokScriptToolsCommon
     )
     {
         public int Address { get; set; }
+        public bool Flag_Vararg_HasArg => (IsVararg & (uint)HksVarargFlags.HASARG) == 0;
+        public bool Flag_Vararg_IsVararg => (IsVararg & (uint)HksVarargFlags.ISVARARG) == 0;
+        public bool Flag_Vararg_NeedsArg => (IsVararg & (uint)HksVarargFlags.NEEDSARG) == 0;
+    }
+
+    public enum HksVarargFlags
+    {
+        HASARG   = 1 << 0,
+        ISVARARG = 1 << 1,
+        NEEDSARG = 1 << 2
     }
 
     public record HksFunctionDebugInfo
@@ -110,18 +114,17 @@ namespace HavokScriptToolsCommon
     public record HksStructMember
     (
         HksStructHeader Header,
-        int Index
+        int Index // index of the member in the backing array?
     );
 
     public record HksStructHeader
     (
         string Name,
         int Unk0,
-        short Unk1,
-        short StructId,
+        uint StructId,
         HksType Type,
-        int Unk2,
-        int Unk3
+        int Unk1,
+        int Unk2
     );
 
     public record HksValue

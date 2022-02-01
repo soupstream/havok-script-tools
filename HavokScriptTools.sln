@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptRunner", "HavokS
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptCompiler", "HavokScriptCompiler\HavokScriptCompiler.csproj", "{FA62F8A8-5F7D-48D2-8FD2-29DD2B3F8B89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HavokScriptDisassembler", "HavokScriptDisassembler\HavokScriptDisassembler.csproj", "{668D0DAD-347F-463D-8525-7B01B51AFE5E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HavokScriptDisassembler", "HavokScriptDisassembler\HavokScriptDisassembler.csproj", "{668D0DAD-347F-463D-8525-7B01B51AFE5E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HavokScriptAssembler", "HavokScriptAssembler\HavokScriptAssembler.csproj", "{1A630FE8-29AF-4252-82F1-6F1695512D2D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{668D0DAD-347F-463D-8525-7B01B51AFE5E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A630FE8-29AF-4252-82F1-6F1695512D2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A630FE8-29AF-4252-82F1-6F1695512D2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A630FE8-29AF-4252-82F1-6F1695512D2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A630FE8-29AF-4252-82F1-6F1695512D2D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

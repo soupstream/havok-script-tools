@@ -1,17 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using HavokScriptToolsCommon;
+using System;
 using System.IO;
-using HavokScriptToolsCommon;
 
-namespace HavokScriptDisassembler
+namespace HavokScriptAssembler
 {
     class Program
     {
-        const string usage = "usage: hksdisasm <filename>";
+        const string usage = "usage: hksasm <filename>";
         static bool ParseArgs(string[] args, out string infilename, out string outfilename)
         {
             infilename = null;
-            outfilename = "hksdisasm.out";
+            outfilename = "hksasm.out";
             if (args.Length != 1 && args.Length != 2)
             {
                 Console.Error.WriteLine(usage);
@@ -31,9 +30,8 @@ namespace HavokScriptDisassembler
             {
                 return 1;
             }
-            byte[] data = File.ReadAllBytes(infilename);
-            var disassembler = new HksDisassembler(data);
-            disassembler.Disassemble(outfilename);
+            var assembler = new HksAssembler(infilename);
+            assembler.Assemble(outfilename);
             return 0;
         }
     }
